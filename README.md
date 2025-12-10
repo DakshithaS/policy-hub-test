@@ -13,16 +13,23 @@ Batch publishing of policy versions via GitHub releases with robust error handli
 - ✅ **Comprehensive Testing**: Automated testing for scripts and workflows
 - 📋 **PR Validation**: Automated validation of policy structure in pull requests
 
-## Required Secrets
+## Required Secrets and Variables
+
+### Secrets (Encrypted - for sensitive data)
 
 | Secret | Description | Example |
 |--------|-------------|---------|
 | `AWS_ACCESS_KEY_ID` | AWS access key for S3 operations | `AKIAIOSFODNN7EXAMPLE` |
 | `AWS_SECRET_ACCESS_KEY` | AWS secret key for S3 operations | `wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY` |
+| `POLICY_HUB_API_KEY` | API key for Policy Hub authentication | `ph_1234567890abcdef` |
+
+### Variables (Plain text - for configuration)
+
+| Variable | Description | Example |
+|----------|-------------|---------|
 | `AWS_REGION` | AWS region for S3 bucket | `us-east-1` |
 | `S3_BUCKET_NAME` | S3 bucket for storing policy artifacts | `my-policy-artifacts` |
 | `POLICY_HUB_API_URL` | Policy Hub API base URL | `https://api.policyhub.com` |
-| `POLICY_HUB_API_KEY` | API key for Policy Hub authentication | `ph_1234567890abcdef` |
 
 ## Repository Structure
 
