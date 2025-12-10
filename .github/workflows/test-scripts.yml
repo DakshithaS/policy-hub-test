@@ -186,8 +186,13 @@ jobs:
           else
             echo "✅ validate-config.sh correctly rejected invalid JSON"
           fi
-        finally:
-          mv config/policy-hub-config.json.backup config/policy-hub-config.json
+
+      - name: Restore config after invalid JSON test
+        if: always()
+        run: |
+          if [ -f "config/policy-hub-config.json.backup" ]; then
+            mv config/policy-hub-config.json.backup config/policy-hub-config.json
+          fi
 
       - name: Test validate-config.sh with missing required field
         run: |
@@ -200,5 +205,10 @@ jobs:
           else
             echo "✅ validate-config.sh correctly rejected config with missing field"
           fi
-        finally:
-          mv config/policy-hub-config.json.backup config/policy-hub-config.json
+
+      - name: Restore config after missing field test
+        if: always()
+        run: |
+          if [ -f "config/policy-hub-config.json.backup" ]; then
+            mv config/policy-hub-config.json.backup config/policy-hub-config.json
+          fi
