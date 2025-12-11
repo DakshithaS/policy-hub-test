@@ -167,8 +167,25 @@ runs:
         response_body=$(echo "$response" | sed 's/HTTP_CODE:[0-9]*$//')
         
         if [[ "$http_code" -ge 200 && "$http_code" -lt 300 ]]; then
-          echo "✅ Synced with Policy Hub (HTTP $http_code)"
-          echo "success=true" >> $GITHUB_OUTPUT
+          # Parse JSON response to check success field
+          api_success=$(echo "$response_body" | jq -r '.success // false' 2>/dev/null || echo "false")
+          
+          if [[ "$api_success" == "true" ]]; then
+            policy_name=$(echo "$response_body" | jq -r '.data.policyName // "unknown"' 2>/dev/null)
+            version=$(echo "$response_body" | jq -r '.data.version // "unknown"' 2>/dev/null)
+            status=$(echo "$response_body" | jq -r '.data.status // "unknown"' 2>/dev/null)
+            trace_id=$(echo "$response_body" | jq -r '.meta.trace_id // "none"' 2>/dev/null)
+            
+            echo "✅ Synced with Policy Hub (HTTP $http_code)"
+            echo "📊 Policy: $policy_name $version, Status: $status, Trace: $trace_id"
+            echo "success=true" >> $GITHUB_OUTPUT
+          else
+            error_msg=$(echo "$response_body" | jq -r '.error // "Unknown error"' 2>/dev/null)
+            echo "❌ Policy Hub sync failed - API returned success=false"
+            echo "Error: $error_msg"
+            echo "Response: $response_body"
+            echo "success=false" >> $GITHUB_OUTPUT
+          fi
         else
           echo "❌ Policy Hub sync failed (HTTP $http_code)"
           echo "Response: $response_body"
