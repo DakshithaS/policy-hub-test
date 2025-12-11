@@ -25,6 +25,11 @@ inputs:
     required: false
     default: 'github'
 
+outputs:
+  success:
+    description: 'Whether the policy was successfully published'
+    value: ${{ steps.result.outputs.success }}
+
 runs:
   using: 'composite'
   steps:
@@ -181,11 +186,19 @@ runs:
     - name: Set final result
       id: result
       run: |
-        if [[ "${{ steps.prepare.outputs.success }}" == "true" && \
-              "${{ steps.upload.outputs.success }}" == "true" && \
-              "${{ steps.sync.outputs.success }}" == "true" ]]; then
+        prepare_success="${{ steps.prepare.outputs.success }}"
+        upload_success="${{ steps.upload.outputs.success }}"
+        sync_success="${{ steps.sync.outputs.success }}"
+        
+        echo "Debug - prepare: $prepare_success, upload: $upload_success, sync: $sync_success"
+        
+        if [[ "$prepare_success" == "true" && \
+              "$upload_success" == "true" && \
+              "$sync_success" == "true" ]]; then
           echo "success=true" >> $GITHUB_OUTPUT
+          echo "✅ All steps completed successfully"
         else
           echo "success=false" >> $GITHUB_OUTPUT
+          echo "❌ One or more steps failed"
         fi
       shell: bash
