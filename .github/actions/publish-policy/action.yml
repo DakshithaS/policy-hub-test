@@ -20,6 +20,10 @@ inputs:
   policy-hub-api-key:
     description: 'Policy Hub API key'
     required: true
+  source-type:
+    description: 'Source type: github or s3'
+    required: false
+    default: 'github'
 
 runs:
   using: 'composite'
@@ -36,20 +40,49 @@ runs:
         fi
       shell: bash
 
-    - name: Upload to S3
+    - name: Upload to S3 or GitHub Release
       id: upload
       if: steps.prepare.outputs.success == 'true'
       run: |
         zip_file="${{ inputs.policy }}-${{ inputs.version }}.zip"
-        s3_path="s3://${{ inputs.s3-bucket }}/policies/$zip_file"
-        if aws s3 cp "$zip_file" "$s3_path" --no-progress; then
-          echo "✅ Uploaded to $s3_path"
-          echo "success=true" >> $GITHUB_OUTPUT
+        
+        # Read source type from config or use input
+        config_file="config/policy-hub-config.json"
+        if [ -f "$config_file" ]; then
+          config_source_type=$(jq -r '.policyHub.sourceType // "github"' "$config_file")
         else
-          echo "❌ S3 upload failed"
-          echo "success=false" >> $GITHUB_OUTPUT
+          config_source_type="github"
+        fi
+        
+        # Use input source-type if provided, otherwise use config
+        source_type="${{ inputs.source-type }}"
+        if [[ -z "$source_type" || "$source_type" == "github" ]]; then
+          source_type="$config_source_type"
+        fi
+        
+        if [[ "$source_type" == "s3" ]]; then
+          # Upload to S3
+          s3_path="s3://${{ inputs.s3-bucket }}/policies/$zip_file"
+          if aws s3 cp "$zip_file" "$s3_path" --no-progress; then
+            echo "✅ Uploaded to $s3_path"
+            echo "success=true" >> $GITHUB_OUTPUT
+          else
+            echo "❌ S3 upload failed"
+            echo "success=false" >> $GITHUB_OUTPUT
+          fi
+        else
+          # Upload to GitHub Release
+          if gh release upload "${{ inputs.version }}" "$zip_file" --clobber; then
+            echo "✅ Uploaded to GitHub release ${{ inputs.version }}"
+            echo "success=true" >> $GITHUB_OUTPUT
+          else
+            echo "❌ GitHub release upload failed"
+            echo "success=false" >> $GITHUB_OUTPUT
+          fi
         fi
       shell: bash
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
 
     - name: Sync with Policy Hub
       id: sync
@@ -65,13 +98,36 @@ runs:
           metadata="{}"
         fi
 
+        # Read source type from config or use input
+        config_file="config/policy-hub-config.json"
+        if [ -f "$config_file" ]; then
+          config_source_type=$(jq -r '.policyHub.sourceType // "github"' "$config_file")
+        else
+          config_source_type="github"
+        fi
+        
+        # Use input source-type if provided, otherwise use config
+        source_type="${{ inputs.source-type }}"
+        if [[ -z "$source_type" || "$source_type" == "github" ]]; then
+          source_type="$config_source_type"
+        fi
+        
+        # Determine source URL based on source type
+        if [[ "$source_type" == "s3" ]]; then
+          source_url="https://${{ inputs.s3-bucket }}.s3.${{ env.AWS_REGION || 'us-east-1' }}.amazonaws.com/policies/${{ inputs.policy }}-${{ inputs.version }}.zip"
+        else
+          # GitHub release asset URL
+          source_url="${{ inputs.repo-url }}/releases/download/${{ inputs.version }}/${{ inputs.policy }}-${{ inputs.version }}.zip"
+          source_type="github"
+        fi
+
         # Construct API payload
         payload=$(cat <<EOF
         {
           "policyName": "${{ inputs.policy }}",
           "version": "${{ inputs.version }}",
-          "sourceType": "github",
-          "sourceUrl": "${{ inputs.repo-url }}",
+          "sourceType": "$source_type",
+          "sourceUrl": "$source_url",
           "definitionUrl": "${{ inputs.repo-url }}/raw/main/$policy_dir/policy-definition.yaml",
           "metadata": $metadata,
           "docsBaseUrl": "${{ inputs.repo-url }}/raw/main/$policy_dir/docs/",

@@ -8,6 +8,7 @@
     "timeout": 30,
     "retryAttempts": 3,
     "retryDelay": 5,
+    "sourceType": "github",
     "rateLimit": {
       "requestsPerMinute": 60,
       "burstLimit": 10
